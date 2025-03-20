@@ -4,8 +4,8 @@
 
 ## Installation
 - Requires [Go](https://golang.org/) 1.16+.
-- Build: `go build -o safe main.go`
-- Run: `go run main.go`
+- Build: `go build -o safe safe.go`
+- Run: `go run safe.go`
 
 ## Usage
 
