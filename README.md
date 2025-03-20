@@ -8,33 +8,37 @@ Requires [Go](https://golang.org/) 1.16+.
 Build:
 
       go build -o safe safe.go
-  
+
 Run:
 
       go run safe.go
-  
+
 ## Usage
 
     Usage: safe <command> [flags]
-    
+
     Commands:
-        encrypt -i <input file> -o <output file> [-k <key>]
-        decrypt -i <input file> -o <output file> [-k <key>]
-    
+      encrypt -i <input file> -o <output file> [-k <key>]
+      decrypt -i <input file> -o <output file> [-k <key>]
+
     Global Flags:
-        -h, --help     Show this help information
-        -v, --version  Show version information
-    
+      -h, --help       Show this help information
+      -v, --version    Show version information
+
     Command Flags:
-        -i, --input    Input file
-        -o, --output   Output file
-        -k, --key      Key (at least 32 bytes)
+      -i, --input      Input file
+      -o, --output     Output file
+      -k, --key        Key (at least 32 bytes)
+      -k, --key        Key (at least 32 bytes)
+      -vk, --verifykey Confirm the key if it is entered through the standard input.
+                       Ignored when the -k flag is specified.
 
 ### Examples
+
 Encrypt:
-  
+
       safe encrypt -i file.txt -o file.enc -k "my32bytekey12345678901234567890"
-  
+
 Decrypt:
 
       safe decrypt -i file.enc -o file.dec -k "my32bytekey12345678901234567890"

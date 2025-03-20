@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"golang.org/x/term"
 	"safe/sac"
@@ -21,21 +22,24 @@ func PrintVersion() {
 
 func PrintUsage(progName string) {
 	PrintVersion()
-	fmt.Printf(" Usage: %s <command> [flags]\n\n", progName)
+	fmt.Printf("  Usage: %s <command> [flags]\n\n", progName)
 	fmt.Println(" Commands:")
 	fmt.Println("   encrypt -i <input file> -o <output file> [-k <key>]")
 	fmt.Println("   decrypt -i <input file> -o <output file> [-k <key>]\n")
 	fmt.Println(" Global Flags:")
-	fmt.Println("   -h, --help     Show this help information")
-	fmt.Println("   -v, --version  Show version information\n")
+	fmt.Println("   -h, --help       Show this help information")
+	fmt.Println("   -v, --version    Show version information\n")
 	fmt.Println(" Command Flags:")
-	fmt.Println("   -i, --input    Input file")
-	fmt.Println("   -o, --output   Output file")
-	fmt.Printf("   -k, --key      Key (at least %d bytes)\n", sac.KeySize)
+	fmt.Println("   -i, --input      Input file")
+	fmt.Println("   -o, --output     Output file")
+	fmt.Printf("   -k, --key        Key (at least %d bytes)\n", sac.KeySize)
+	fmt.Printf("   -k, --key        Key (at least %d bytes)\n", sac.KeySize)
+	fmt.Println("   -vk, --verifykey Confirm the key if it is entered through the standard input.")
+	fmt.Println("                    Ignored when the -k flag is specified.")
 	fmt.Println()
 }
 
-func GetKey(value string) ([]byte, error) {
+func GetKey(value string, verifyKey bool) ([]byte, error) {
 	if len(value) != 0 {
 		return []byte(value), nil
 	}
@@ -46,6 +50,21 @@ func GetKey(value string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if !verifyKey {
+		return key, nil
+	}
+	var vkey []byte
+	fmt.Println("Verfiy key: ")
+	vkey, err = term.ReadPassword(int(os.Stdin.Fd()))
+	if err != nil {
+		return nil, err
+	}
+
+	if !slices.Equal(key, vkey) {
+		return nil, fmt.Errorf("keys doesn't match")
+	}
+
 	return key, nil
 }
 
@@ -75,6 +94,9 @@ func main() {
 	encryptKey := encryptCmd.String("k", "", "Encryption key")
 	encryptCmd.StringVar(encryptKey, "key", "", "Encryption key (alternative to -k)")
 
+	verifyEncryptKey := encryptCmd.Bool("vk", false, "Verfiy key")
+	encryptCmd.BoolVar(verifyEncryptKey, "verifykey", false, "Verfiy key")
+
 	// DECRYPT
 	decryptCmd := flag.NewFlagSet("decrypt", flag.ExitOnError)
 	decryptInput := decryptCmd.String("i", "", "Input encrypted file")
@@ -85,6 +107,9 @@ func main() {
 
 	decryptKey := decryptCmd.String("k", "", "Decryption key")
 	decryptCmd.StringVar(decryptKey, "key", "", "Decryption key (alternative to -k)")
+
+	verifyDecryptKey := decryptCmd.Bool("vk", false, "Verfiy key")
+	decryptCmd.BoolVar(verifyDecryptKey, "verifykey", false, "Verfiy key")
 
 	flag.Parse()
 
@@ -107,7 +132,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		key, err := GetKey(*encryptKey)
+		key, err := GetKey(*encryptKey, *verifyEncryptKey)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -128,7 +153,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		key, err := GetKey(*decryptKey)
+		key, err := GetKey(*decryptKey, *verifyDecryptKey)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
