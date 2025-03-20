@@ -1,12 +1,18 @@
 # Stand-Alone File Encryptor (safe)
 
-`safe` is a command-line tool for file encryption/decryption.
+Safe is a command-line tool for file encryption/decryption.
 
 ## Installation
-- Requires [Go](https://golang.org/) 1.16+.
-- Build: `go build -o safe safe.go`
-- Run: `go run safe.go`
+Requires [Go](https://golang.org/) 1.16+.
 
+Build:
+
+      go build -o safe safe.go
+  
+Run:
+
+      go run safe.go
+  
 ## Usage
 
     Usage: safe <command> [flags]
@@ -25,9 +31,13 @@
         -k, --key      Key (at least 32 bytes)
 
 ### Examples
-- Encrypt: `safe encrypt -i file.txt -o file.enc -k "my32bytekey12345678901234567890"`
-- Decrypt: `safe decrypt -i file.enc -o file.dec -k "my32bytekey12345678901234567890"`
-- Help: `safe -h`
+Encrypt:
+  
+      safe encrypt -i file.txt -o file.enc -k "my32bytekey12345678901234567890"
+  
+Decrypt:
+
+      safe decrypt -i file.enc -o file.dec -k "my32bytekey12345678901234567890"
 
 ## Cryptography
 - **Encryption**: XChaCha20-Poly1305 (`golang.org/x/crypto/chacha20poly1305`) – 256-bit key, 24-byte random nonce.
