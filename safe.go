@@ -24,48 +24,47 @@ func PrintUsage(progName string) {
 	PrintVersion()
 	fmt.Printf("  Usage: %s <command> [flags]\n\n", progName)
 	fmt.Println(" Commands:")
-	fmt.Println("   encrypt -i <input file> -o <output file> [-k <key>]")
-	fmt.Println("   decrypt -i <input file> -o <output file> [-k <key>]\n")
+	fmt.Println("   encrypt -i <input file> -o <output file> [-p <password>]")
+	fmt.Println("   decrypt -i <input file> -o <output file> [-p <password>]\n")
 	fmt.Println(" Global Flags:")
 	fmt.Println("   -h, --help       Show this help information")
 	fmt.Println("   -v, --version    Show version information\n")
 	fmt.Println(" Command Flags:")
 	fmt.Println("   -i, --input      Input file")
 	fmt.Println("   -o, --output     Output file")
-	fmt.Printf("   -k, --key        Key (at least %d bytes)\n", sac.KeySize)
-	fmt.Printf("   -k, --key        Key (at least %d bytes)\n", sac.KeySize)
-	fmt.Println("   -vk, --verifykey Confirm the key if it is entered through the standard input.")
-	fmt.Println("                    Ignored when the -k flag is specified.")
+	fmt.Println("   -p, --password")
+	fmt.Println("   -vp, --verify    Confirm password if it is entered through the standard input.")
+	fmt.Println("                    Ignored when the -p flag is specified.")
 	fmt.Println()
 }
 
-func GetKey(value string, verifyKey bool) ([]byte, error) {
+func GetPassword(value string, verify bool) ([]byte, error) {
 	if len(value) != 0 {
 		return []byte(value), nil
 	}
-	fmt.Println("Enter key: ")
+	fmt.Println("Enter password: ")
 
-	var key []byte
-	key, err := term.ReadPassword(int(os.Stdin.Fd()))
+	var password []byte
+	password, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return nil, err
 	}
 
-	if !verifyKey {
-		return key, nil
+	if !verify{
+		return password, nil
 	}
-	var vkey []byte
-	fmt.Println("Verfiy key: ")
-	vkey, err = term.ReadPassword(int(os.Stdin.Fd()))
+	var vpassword []byte
+	fmt.Println("Verfiy password: ")
+	vpassword, err = term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return nil, err
 	}
 
-	if !slices.Equal(key, vkey) {
-		return nil, fmt.Errorf("keys doesn't match")
+	if !slices.Equal(password, vpassword) {
+		return nil, fmt.Errorf("passwords doesn't match")
 	}
 
-	return key, nil
+	return password, nil
 }
 
 func main() {
@@ -91,11 +90,11 @@ func main() {
 	encryptOutput := encryptCmd.String("o", "", "Output encrypted file")
 	encryptCmd.StringVar(encryptOutput, "output", "", "Output encrypted file (alternative to -o)")
 
-	encryptKey := encryptCmd.String("k", "", "Encryption key")
-	encryptCmd.StringVar(encryptKey, "key", "", "Encryption key (alternative to -k)")
+	encryptPassword := encryptCmd.String("p", "", "Encryption password")
+	encryptCmd.StringVar(encryptPassword, "password", "", "Encryption password (alternative to -p)")
 
-	verifyEncryptKey := encryptCmd.Bool("vk", false, "Verfiy key")
-	encryptCmd.BoolVar(verifyEncryptKey, "verifykey", false, "Verfiy key")
+	verifyEncryptPassword := encryptCmd.Bool("vp", false, "Verfiy password")
+	encryptCmd.BoolVar(verifyEncryptPassword, "verify", false, "Verfiy password")
 
 	// DECRYPT
 	decryptCmd := flag.NewFlagSet("decrypt", flag.ExitOnError)
@@ -105,11 +104,11 @@ func main() {
 	decryptOutput := decryptCmd.String("o", "", "Output decrypted file")
 	decryptCmd.StringVar(decryptOutput, "output", "", "Output decrypted file (alternative to -o)")
 
-	decryptKey := decryptCmd.String("k", "", "Decryption key")
-	decryptCmd.StringVar(decryptKey, "key", "", "Decryption key (alternative to -k)")
+	decryptPassword := decryptCmd.String("p", "", "Decryption password")
+	decryptCmd.StringVar(decryptPassword, "password", "", "Decryption password (alternative to -p)")
 
-	verifyDecryptKey := decryptCmd.Bool("vk", false, "Verfiy key")
-	decryptCmd.BoolVar(verifyDecryptKey, "verifykey", false, "Verfiy key")
+	verifyDecryptPassword := decryptCmd.Bool("vp", false, "Verfiy password")
+	decryptCmd.BoolVar(verifyDecryptPassword, "verify", false, "Verfiy password")
 
 	flag.Parse()
 
@@ -132,13 +131,13 @@ func main() {
 			os.Exit(1)
 		}
 
-		key, err := GetKey(*encryptKey, *verifyEncryptKey)
+		password, err := GetPassword(*encryptPassword, *verifyEncryptPassword)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		err = sac.EncryptFile(key, *encryptInput, *encryptOutput)
+		err = sac.EncryptFile(password, *encryptInput, *encryptOutput)
 		if err != nil {
 			fmt.Println("Encryption error:", err)
 			os.Exit(1)
@@ -153,13 +152,13 @@ func main() {
 			os.Exit(1)
 		}
 
-		key, err := GetKey(*decryptKey, *verifyDecryptKey)
+		password, err := GetPassword(*decryptPassword, *verifyDecryptPassword)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		err = sac.DecryptFile(key, *decryptInput, *decryptOutput)
+		err = sac.DecryptFile(password, *decryptInput, *decryptOutput)
 		if err != nil {
 			fmt.Println("Decryption error:", err)
 			os.Exit(1)

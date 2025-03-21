@@ -15,11 +15,11 @@ Run:
 
 ## Usage
 
-    Usage: safe <command> [flags]
+     Usage: safe.exe <command> [flags]
 
     Commands:
-      encrypt -i <input file> -o <output file> [-k <key>]
-      decrypt -i <input file> -o <output file> [-k <key>]
+      encrypt -i <input file> -o <output file> [-p <password>]
+      decrypt -i <input file> -o <output file> [-p <password>]
 
     Global Flags:
       -h, --help       Show this help information
@@ -28,20 +28,19 @@ Run:
     Command Flags:
       -i, --input      Input file
       -o, --output     Output file
-      -k, --key        Key (at least 32 bytes)
-      -k, --key        Key (at least 32 bytes)
-      -vk, --verifykey Confirm the key if it is entered through the standard input.
-                       Ignored when the -k flag is specified.
+      -p, --password
+      -vp, --verify    Confirm password if it is entered through the standard input.
+                       Ignored when the -p flag is specified.
 
 ### Examples
 
 Encrypt:
 
-      safe encrypt -i file.txt -o file.enc -k "my32bytekey12345678901234567890"
+      safe encrypt -i file.txt -o file.enc -p "password"
 
 Decrypt:
 
-      safe decrypt -i file.enc -o file.dec -k "my32bytekey12345678901234567890"
+      safe decrypt -i file.enc -o file.dec -p "password"
 
 ## Cryptography
 - **Encryption**: XChaCha20-Poly1305 (`golang.org/x/crypto/chacha20poly1305`) – 256-bit key, 24-byte random nonce.

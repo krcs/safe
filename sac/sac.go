@@ -51,10 +51,6 @@ type ChunkHeader struct {
 }
 
 func EncryptFile(key []byte, inputPath, outputPath string) error {
-	if len(key) < KeySize {
-		return fmt.Errorf("key length %d is less than required %d bytes", len(key), KeySize)
-	}
-
 	inFileInfo, err := os.Stat(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to get input file info: %v", err)
@@ -181,10 +177,6 @@ func EncryptFile(key []byte, inputPath, outputPath string) error {
 }
 
 func DecryptFile(key []byte, inputPath, outputPath string) error {
-	if len(key) < KeySize {
-		return fmt.Errorf("key length %d is less than required %d bytes", len(key), KeySize)
-	}
-
 	inFileInfo, err := os.Stat(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to get input file info: %v", err)
