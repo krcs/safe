@@ -25,10 +25,12 @@ func PrintUsage(progName string) {
 	fmt.Printf("  Usage: %s <command> [flags]\n\n", progName)
 	fmt.Println(" Commands:")
 	fmt.Println("   encrypt -i <input file> -o <output file> [-p <password>]")
-	fmt.Println("   decrypt -i <input file> -o <output file> [-p <password>]\n")
+	fmt.Println("   decrypt -i <input file> -o <output file> [-p <password>]")
+	fmt.Println()
 	fmt.Println(" Global Flags:")
 	fmt.Println("   -h, --help       Show this help information")
-	fmt.Println("   -v, --version    Show version information\n")
+	fmt.Println("   -v, --version    Show version information")
+	fmt.Println()
 	fmt.Println(" Command Flags:")
 	fmt.Println("   -i, --input      Input file")
 	fmt.Println("   -o, --output     Output file")
@@ -50,7 +52,7 @@ func GetPassword(value string, verify bool) ([]byte, error) {
 		return nil, err
 	}
 
-	if !verify{
+	if !verify {
 		return password, nil
 	}
 	var vpassword []byte
@@ -81,34 +83,19 @@ func main() {
 	version := flag.Bool("v", false, "Show version information")
 	flag.BoolVar(version, "version", false, "Show version information")
 
-	// ENCRYPT
-	encryptCmd := flag.NewFlagSet("encrypt", flag.ExitOnError)
+	command := flag.NewFlagSet("command", flag.ExitOnError)
 
-	encryptInput := encryptCmd.String("i", "", "Input file to encrypt")
-	encryptCmd.StringVar(encryptInput, "input", "", "Input file to encrypt (alternative to -i)")
+	input := command.String("i", "", "Input file")
+	command.StringVar(input, "input", "", "Input file (alternative to -i)")
 
-	encryptOutput := encryptCmd.String("o", "", "Output encrypted file")
-	encryptCmd.StringVar(encryptOutput, "output", "", "Output encrypted file (alternative to -o)")
+	output := command.String("o", "", "Output file")
+	command.StringVar(output, "output", "", "Output file (alternative to -o)")
 
-	encryptPassword := encryptCmd.String("p", "", "Encryption password")
-	encryptCmd.StringVar(encryptPassword, "password", "", "Encryption password (alternative to -p)")
+	password := command.String("p", "", "Password")
+	command.StringVar(password, "password", "", "Password (alternative to -p)")
 
-	verifyEncryptPassword := encryptCmd.Bool("vp", false, "Verfiy password")
-	encryptCmd.BoolVar(verifyEncryptPassword, "verify", false, "Verfiy password")
-
-	// DECRYPT
-	decryptCmd := flag.NewFlagSet("decrypt", flag.ExitOnError)
-	decryptInput := decryptCmd.String("i", "", "Input encrypted file")
-	decryptCmd.StringVar(decryptInput, "input", "", "Input encrypted file (alternative to -i)")
-
-	decryptOutput := decryptCmd.String("o", "", "Output decrypted file")
-	decryptCmd.StringVar(decryptOutput, "output", "", "Output decrypted file (alternative to -o)")
-
-	decryptPassword := decryptCmd.String("p", "", "Decryption password")
-	decryptCmd.StringVar(decryptPassword, "password", "", "Decryption password (alternative to -p)")
-
-	verifyDecryptPassword := decryptCmd.Bool("vp", false, "Verfiy password")
-	decryptCmd.BoolVar(verifyDecryptPassword, "verify", false, "Verfiy password")
+	verify := command.Bool("vp", false, "Verfiy password")
+	command.BoolVar(verify, "verify", false, "Verfiy password")
 
 	flag.Parse()
 
@@ -124,20 +111,19 @@ func main() {
 
 	switch os.Args[1] {
 	case "encrypt":
-		encryptCmd.Parse(os.Args[2:])
-		if *encryptInput == "" || *encryptOutput == "" {
+		command.Parse(os.Args[2:])
+		if *input == "" || *output == "" {
 			fmt.Println("encrypt: flags (-i, -o) are required")
-			encryptCmd.Usage()
 			os.Exit(1)
 		}
 
-		password, err := GetPassword(*encryptPassword, *verifyEncryptPassword)
+		passwordBytes, err := GetPassword(*password, *verify)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		err = sac.EncryptFile(password, *encryptInput, *encryptOutput)
+		err = sac.EncryptFile(passwordBytes, *input, *output)
 		if err != nil {
 			fmt.Println("Encryption error:", err)
 			os.Exit(1)
@@ -145,20 +131,19 @@ func main() {
 		fmt.Println("Encryption completed successfully")
 
 	case "decrypt":
-		decryptCmd.Parse(os.Args[2:])
-		if *decryptInput == "" || *decryptOutput == "" {
+		command.Parse(os.Args[2:])
+		if *input == "" || *output == "" {
 			fmt.Println("decrypt: flags (-i, -o) are required")
-			decryptCmd.Usage()
 			os.Exit(1)
 		}
 
-		password, err := GetPassword(*decryptPassword, *verifyDecryptPassword)
+		passwordBytes, err := GetPassword(*password, *verify)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		err = sac.DecryptFile(password, *decryptInput, *decryptOutput)
+		err = sac.DecryptFile(passwordBytes, *input, *output)
 		if err != nil {
 			fmt.Println("Decryption error:", err)
 			os.Exit(1)

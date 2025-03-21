@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	Version = 1                      // File format version
+	Version = 1 // File format version
 
 	ChunkSize           = 64 * 1024  // 64KB chunks
 	DomainSeparatorSize = 16         // Size of random domain separators
