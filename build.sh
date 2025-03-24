@@ -5,6 +5,5 @@ COMMIT=$(git rev-parse HEAD)
 DATE=$(date +"%Y%m%d")
 
 VERSION_STRING="$VERSION-$DATE-commit:$COMMIT"
-echo $VERSION_STRING
 
 go build -ldflags="-X main.AppVersion=$VERSION_STRING" -o ./release

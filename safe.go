@@ -12,7 +12,7 @@ import (
 )
 
 var AppVersion = "1.0"
-var AppName    = "Stand-Alone File Encryptor"
+var AppName = "Stand-Alone File Encryptor"
 
 func PrintVersion() {
 	fmt.Printf("%s v%s (K!2025)\nFile Version: v%d\n\n", AppName, AppVersion, sac.Version)
@@ -70,7 +70,7 @@ func GetPassword(value string, verify bool) ([]byte, error) {
 }
 
 func main() {
-	flag.Usage = PrintUsage;
+	flag.Usage = PrintUsage
 
 	if len(os.Args) < 2 {
 		flag.Usage()
