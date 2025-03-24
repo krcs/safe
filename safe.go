@@ -11,16 +11,15 @@ import (
 	"safe/sac"
 )
 
-const (
-	AppName    = "Stand-Alone File Encryptor"
-	AppVersion = "1.0"
-)
+var AppVersion = "1.0"
+var AppName    = "Stand-Alone File Encryptor"
 
 func PrintVersion() {
-	fmt.Printf("%s v%s (K!2025), File Version: v%d\n\n", AppName, AppVersion, sac.Version)
+	fmt.Printf("%s v%s (K!2025)\nFile Version: v%d\n\n", AppName, AppVersion, sac.Version)
 }
 
-func PrintUsage(progName string) {
+func PrintUsage() {
+	progName := filepath.Base(os.Args[0])
 	PrintVersion()
 	fmt.Printf("  Usage: %s <command> [flags]\n\n", progName)
 	fmt.Println(" Commands:")
@@ -38,6 +37,7 @@ func PrintUsage(progName string) {
 	fmt.Println("   -vp, --verify    Confirm password if it is entered through the standard input.")
 	fmt.Println("                    Ignored when the -p flag is specified.")
 	fmt.Println()
+	flag.PrintDefaults()
 }
 
 func GetPassword(value string, verify bool) ([]byte, error) {
@@ -70,10 +70,10 @@ func GetPassword(value string, verify bool) ([]byte, error) {
 }
 
 func main() {
-	progName := filepath.Base(os.Args[0])
+	flag.Usage = PrintUsage;
 
 	if len(os.Args) < 2 {
-		PrintUsage(progName)
+		flag.Usage()
 		os.Exit(1)
 	}
 
@@ -100,7 +100,7 @@ func main() {
 	flag.Parse()
 
 	if *help {
-		PrintUsage(progName)
+		flag.Usage()
 		os.Exit(0)
 	}
 
@@ -151,7 +151,7 @@ func main() {
 		fmt.Println("Decryption completed successfully")
 
 	default:
-		PrintUsage(progName)
+		flag.Usage()
 		os.Exit(1)
 	}
 }

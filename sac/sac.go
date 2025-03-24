@@ -50,7 +50,7 @@ type ChunkHeader struct {
 	PaddingLength uint8
 }
 
-func EncryptFile(key []byte, inputPath, outputPath string) error {
+func EncryptFile(password []byte, inputPath, outputPath string) error {
 	inFileInfo, err := os.Stat(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to get input file info: %v", err)
@@ -64,8 +64,8 @@ func EncryptFile(key []byte, inputPath, outputPath string) error {
 		return err
 	}
 
-	encKey := argon2.IDKey(key, append(header.Salt[:], header.EncDomainSeparator[:]...), Iterations, Memory, Threads, KeySize)
-	hmacKey := argon2.IDKey(key, append(header.HMACSalt[:], header.HMACDomainSeparator[:]...), HmacIter, HmacMemory, Threads, KeySize)
+	encKey := argon2.IDKey(password, append(header.Salt[:], header.EncDomainSeparator[:]...), Iterations, Memory, Threads, KeySize)
+	hmacKey := argon2.IDKey(password, append(header.HMACSalt[:], header.HMACDomainSeparator[:]...), HmacIter, HmacMemory, Threads, KeySize)
 
 	aead, err := chacha20poly1305.NewX(encKey)
 	if err != nil {
@@ -176,7 +176,7 @@ func EncryptFile(key []byte, inputPath, outputPath string) error {
 	return nil
 }
 
-func DecryptFile(key []byte, inputPath, outputPath string) error {
+func DecryptFile(password []byte, inputPath, outputPath string) error {
 	inFileInfo, err := os.Stat(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to get input file info: %v", err)
@@ -201,8 +201,8 @@ func DecryptFile(key []byte, inputPath, outputPath string) error {
 		return fmt.Errorf("unsupported file version: %d", header.Version)
 	}
 
-	encKey := argon2.IDKey(key, append(header.Salt[:], header.EncDomainSeparator[:]...), Iterations, Memory, Threads, KeySize)
-	hmacKey := argon2.IDKey(key, append(header.HMACSalt[:], header.HMACDomainSeparator[:]...), HmacIter, HmacMemory, Threads, KeySize)
+	encKey := argon2.IDKey(password, append(header.Salt[:], header.EncDomainSeparator[:]...), Iterations, Memory, Threads, KeySize)
+	hmacKey := argon2.IDKey(password, append(header.HMACSalt[:], header.HMACDomainSeparator[:]...), HmacIter, HmacMemory, Threads, KeySize)
 
 	computedHeaderHmac := ComputeHeaderHMAC(header, hmacKey)
 	storedHeaderHmac := make([]byte, HeaderHmacSize)
