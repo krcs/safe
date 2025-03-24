@@ -46,10 +46,6 @@ type FileHeader struct {
 	DataLength          uint64                    // Total original data length
 }
 
-type ChunkHeader struct {
-	PaddingLength uint8
-}
-
 func EncryptFile(password []byte, inputPath, outputPath string) error {
 	inFileInfo, err := os.Stat(inputPath)
 	if err != nil {
@@ -130,15 +126,14 @@ func EncryptFile(password []byte, inputPath, outputPath string) error {
 		header.DataLength += uint64(n)
 		header.PaddingLength += uint32(paddingSize)
 
-		chunkHeader := ChunkHeader{PaddingLength: paddingSize}
-		chunkHeaderBytes := []byte{chunkHeader.PaddingLength}
+		chunkHeaderBytes :=  []byte{ paddingSize }
 
 		ciphertext := aead.Seal(nil, nonce, data, chunkHeaderBytes)
 
 		if _, err := outFile.Write(nonce); err != nil {
 			return err
 		}
-		if err := binary.Write(outFile, binary.BigEndian, &chunkHeader); err != nil {
+		if err := binary.Write(outFile, binary.BigEndian, chunkHeaderBytes); err != nil {
 			return err
 		}
 		if _, err := outFile.Write(ciphertext); err != nil {
@@ -244,19 +239,19 @@ func DecryptFile(password []byte, inputPath, outputPath string) error {
 		}
 		encryptedSize -= NonceSize
 
-		var chunkHeader ChunkHeader
+		var chunkHeader uint8
 		if err := binary.Read(inFile, binary.BigEndian, &chunkHeader); err != nil {
 			return fmt.Errorf("failed to read chunk header: %v", err)
 		}
 		encryptedSize -= int64(binary.Size(chunkHeader))
-		chunkHeaderBytes := []byte{chunkHeader.PaddingLength}
+		chunkHeaderBytes := []byte{chunkHeader}
 
 		cipherSize := ChunkSize + chacha20poly1305.Overhead
 		if remainingData < ChunkSize {
 			cipherSize = int(remainingData) + chacha20poly1305.Overhead
 		}
-		if int64(cipherSize) > encryptedSize-int64(chunkHeader.PaddingLength) {
-			cipherSize = int(encryptedSize) - int(chunkHeader.PaddingLength)
+		if int64(cipherSize) > encryptedSize-int64(chunkHeader) {
+			cipherSize = int(encryptedSize) - int(chunkHeader)
 		}
 		_, err := io.ReadFull(inFile, cipherBuffer[:cipherSize])
 		if err != nil {
@@ -274,13 +269,13 @@ func DecryptFile(password []byte, inputPath, outputPath string) error {
 			return err
 		}
 
-		padding := make([]byte, chunkHeader.PaddingLength)
+		padding := make([]byte, chunkHeader)
 		if _, err := io.ReadFull(inFile, padding); err != nil {
 			return fmt.Errorf("failed to read padding: %v", err)
 		}
-		encryptedSize -= int64(chunkHeader.PaddingLength)
+		encryptedSize -= int64(chunkHeader)
 
-		totalPadding += uint32(chunkHeader.PaddingLength)
+		totalPadding += uint32(chunkHeader)
 		remainingData -= uint64(len(plaintext))
 
 		fileMac.Write(nonceBuffer)
