@@ -1,6 +1,7 @@
 package sac
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/subtle"
@@ -17,22 +18,25 @@ import (
 const (
 	Version = 1 // File format version
 
-	ChunkSize           = 64 * 1024  // 64KB chunks
-	DomainSeparatorSize = 16         // Size of random domain separators
-	HeaderHmacSize      = 64         // Size of header HMAC
-	HmacIVSize          = 32         // Increased HMAC IV size
-	HmacIter            = 3          // Increased iterations for HMAC key
-	HmacMemory          = 128 * 1024 // Increased to 128MB for HMAC key
-	HmacSaltSize        = 32         // Salt size for HMAC key
-	HmacSize            = 64         // SHA3-512 HMAC size
-	Iterations          = 5          // Increased iterations for Argon2
-	KeySize             = 32         // 256-bit key (quantum-safe for symmetric crypto)
-	MaxFileSize         = 256 << 30  // maximum file size
-	MaxPaddingSize      = 64         // Maximum random padding size per chunk
-	Memory              = 256 * 1024 // Increased to 256MB for quantum resistance
-	NonceSize           = 24         // ChaCha20-Poly1305 nonce size
-	SaltSize            = 32         // Salt size for encryption key
-	Threads             = 4          // Number of threads for Argon2
+	ChunkSize             = 64 * 1024  // 64KB chunks
+	DomainSeparatorSize   = 16         // Size of random domain separators
+	HeaderHmacSize        = 64         // Size of header HMAC
+	HeaderNonceSize       = 24         // Nonce size for header encryption
+	HeaderDomainSeparator = 16         // Size of random domain separator for header key
+	HeaderSaltSize        = 32         // Salt size for header key (moved outside FileHeader)
+	HmacIVSize            = 32         // Increased HMAC IV size
+	HmacIter              = 3          // Increased iterations for HMAC key
+	HmacMemory            = 128 * 1024 // Increased to 128MB for HMAC key
+	HmacSaltSize          = 32         // Salt size for HMAC key
+	HmacSize              = 64         // SHA3-512 HMAC size
+	Iterations            = 10         // Increased iterations for Argon2
+	KeySize               = 32         // 256-bit key (quantum-safe for symmetric crypto)
+	MaxFileSize           = 256 << 30  // maximum file size
+	MaxPaddingSize        = 64         // Maximum random padding size per chunk
+	Memory                = 256 * 1024 // Increased to 256MB for quantum resistance
+	NonceSize             = 24         // ChaCha20-Poly1305 nonce size for data
+	SaltSize              = 32         // Salt size for encryption key
+	Threads               = 4          // Number of threads for Argon2
 )
 
 type FileHeader struct {
@@ -60,10 +64,24 @@ func EncryptFile(password []byte, inputPath, outputPath string) error {
 		return err
 	}
 
+	headerDomainSeparator, err := GenerateRandomBytes(HeaderDomainSeparator)
+	if err != nil {
+		return fmt.Errorf("failed to generate header domain separator: %v", err)
+	}
+	headerSalt, err := GenerateRandomBytes(HeaderSaltSize)
+	if err != nil {
+		return fmt.Errorf("failed to generate header salt: %v", err)
+	}
+
 	encKey := argon2.IDKey(password, append(header.Salt[:], header.EncDomainSeparator[:]...), Iterations, Memory, Threads, KeySize)
 	hmacKey := argon2.IDKey(password, append(header.HMACSalt[:], header.HMACDomainSeparator[:]...), HmacIter, HmacMemory, Threads, KeySize)
+	headerKey := argon2.IDKey(password, append(headerSalt, headerDomainSeparator...), Iterations, Memory, Threads, KeySize)
 
 	aead, err := chacha20poly1305.NewX(encKey)
+	if err != nil {
+		return err
+	}
+	headerAead, err := chacha20poly1305.NewX(headerKey)
 	if err != nil {
 		return err
 	}
@@ -80,11 +98,28 @@ func EncryptFile(password []byte, inputPath, outputPath string) error {
 	}
 	defer outFile.Close()
 
-	headerPos, err := outFile.Seek(0, io.SeekStart)
+	if _, err := outFile.Write(headerDomainSeparator); err != nil {
+		return err
+	}
+	if _, err := outFile.Write(headerSalt); err != nil {
+		return err
+	}
+
+	headerBytes := new(bytes.Buffer)
+	if err := binary.Write(headerBytes, binary.BigEndian, &header); err != nil {
+		return err
+	}
+
+	headerNonce, err := GenerateRandomBytes(HeaderNonceSize)
 	if err != nil {
 		return err
 	}
-	if err := binary.Write(outFile, binary.BigEndian, &header); err != nil {
+	encryptedHeader := headerAead.Seal(nil, headerNonce, headerBytes.Bytes(), nil)
+
+	if _, err := outFile.Write(headerNonce); err != nil {
+		return err
+	}
+	if _, err := outFile.Write(encryptedHeader); err != nil {
 		return err
 	}
 
@@ -126,7 +161,7 @@ func EncryptFile(password []byte, inputPath, outputPath string) error {
 		header.DataLength += uint64(n)
 		header.PaddingLength += uint32(paddingSize)
 
-		chunkHeaderBytes :=  []byte{ paddingSize }
+		chunkHeaderBytes := []byte{paddingSize}
 
 		ciphertext := aead.Seal(nil, nonce, data, chunkHeaderBytes)
 
@@ -148,13 +183,21 @@ func EncryptFile(password []byte, inputPath, outputPath string) error {
 		fileMac.Write(data)
 	}
 
-	if _, err := outFile.Seek(headerPos, io.SeekStart); err != nil {
+	headerBytes.Reset()
+	if err := binary.Write(headerBytes, binary.BigEndian, &header); err != nil {
 		return err
 	}
-	if err := binary.Write(outFile, binary.BigEndian, &header); err != nil {
-		return err
-	}
+	encryptedHeader = headerAead.Seal(nil, headerNonce, headerBytes.Bytes(), nil)
 
+	if _, err := outFile.Seek(int64(HeaderDomainSeparator+HeaderSaltSize), io.SeekStart); err != nil {
+		return err
+	}
+	if _, err := outFile.Write(headerNonce); err != nil {
+		return err
+	}
+	if _, err := outFile.Write(encryptedHeader); err != nil {
+		return err
+	}
 	headerHmac = ComputeHeaderHMAC(header, hmacKey)
 	if _, err := outFile.Write(headerHmac); err != nil {
 		return err
@@ -176,9 +219,8 @@ func DecryptFile(password []byte, inputPath, outputPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get input file info: %v", err)
 	}
-	if inFileInfo.Size() > MaxFileSize+int64(binary.Size(FileHeader{})+HeaderHmacSize+HmacSize) {
-		return fmt.Errorf("encrypted file size %d exceeds maximum allowed size of %d bytes",
-			inFileInfo.Size(), MaxFileSize+int64(binary.Size(FileHeader{})+HeaderHmacSize+HmacSize))
+	if inFileInfo.Size() > MaxFileSize+int64(HeaderDomainSeparator+HeaderSaltSize+HeaderNonceSize+binary.Size(FileHeader{})+chacha20poly1305.Overhead+HeaderHmacSize+HmacSize) {
+		return fmt.Errorf("encrypted file size %d exceeds maximum allowed size", inFileInfo.Size())
 	}
 
 	inFile, err := os.Open(inputPath)
@@ -187,26 +229,57 @@ func DecryptFile(password []byte, inputPath, outputPath string) error {
 	}
 	defer inFile.Close()
 
-	var header FileHeader
-	if err := binary.Read(inFile, binary.BigEndian, &header); err != nil {
+	headerDomainSeparator := make([]byte, HeaderDomainSeparator)
+	if _, err := io.ReadFull(inFile, headerDomainSeparator); err != nil {
+		return fmt.Errorf("failed to read header domain separator: %v", err)
+	}
+
+	headerSalt := make([]byte, HeaderSaltSize)
+	if _, err := io.ReadFull(inFile, headerSalt); err != nil {
+		return fmt.Errorf("failed to read header salt: %v", err)
+	}
+
+	headerNonce := make([]byte, HeaderNonceSize)
+	if _, err := io.ReadFull(inFile, headerNonce); err != nil {
+		return fmt.Errorf("failed to read header nonce: %v", err)
+	}
+
+	encryptedHeader := make([]byte, binary.Size(FileHeader{})+chacha20poly1305.Overhead)
+	if _, err := io.ReadFull(inFile, encryptedHeader); err != nil {
+		return fmt.Errorf("failed to read encrypted header: %v", err)
+	}
+
+	storedHeaderHmac := make([]byte, HeaderHmacSize)
+	if _, err := io.ReadFull(inFile, storedHeaderHmac); err != nil {
+		return fmt.Errorf("failed to read header HMAC: %v", err)
+	}
+
+	headerKey := argon2.IDKey(password, append(headerSalt, headerDomainSeparator...), Iterations, Memory, Threads, KeySize)
+	headerAead, err := chacha20poly1305.NewX(headerKey)
+	if err != nil {
 		return err
 	}
 
-	if header.Version != Version {
-		return fmt.Errorf("unsupported file version: %d", header.Version)
+	headerBytes, err := headerAead.Open(nil, headerNonce, encryptedHeader, nil)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt header (possible wrong password): %v", err)
+	}
+
+	var header FileHeader
+	if err := binary.Read(bytes.NewReader(headerBytes), binary.BigEndian, &header); err != nil {
+		return err
 	}
 
 	encKey := argon2.IDKey(password, append(header.Salt[:], header.EncDomainSeparator[:]...), Iterations, Memory, Threads, KeySize)
 	hmacKey := argon2.IDKey(password, append(header.HMACSalt[:], header.HMACDomainSeparator[:]...), HmacIter, HmacMemory, Threads, KeySize)
 
 	computedHeaderHmac := ComputeHeaderHMAC(header, hmacKey)
-	storedHeaderHmac := make([]byte, HeaderHmacSize)
-	if _, err := io.ReadFull(inFile, storedHeaderHmac); err != nil {
-		return fmt.Errorf("failed to read header HMAC: %v", err)
-	}
-
 	if subtle.ConstantTimeCompare(storedHeaderHmac, computedHeaderHmac) != 1 {
 		return fmt.Errorf("header integrity check failed")
+	}
+
+	if header.Version != Version {
+		return fmt.Errorf("unsupported file version: %d", header.Version)
 	}
 
 	aead, err := chacha20poly1305.NewX(encKey)
@@ -220,7 +293,7 @@ func DecryptFile(password []byte, inputPath, outputPath string) error {
 	}
 	defer outFile.Close()
 
-	encryptedSize := inFileInfo.Size() - int64(binary.Size(header)) - HeaderHmacSize - HmacSize
+	encryptedSize := inFileInfo.Size() - int64(HeaderDomainSeparator+HeaderSaltSize+HeaderNonceSize+len(encryptedHeader)+HeaderHmacSize+HmacSize)
 	if encryptedSize < 0 {
 		return fmt.Errorf("invalid file size: too small to contain encrypted data")
 	}
