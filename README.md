@@ -15,7 +15,7 @@ Run:
 
 ## Usage
 
-     Usage: safe.exe <command> [flags]
+     Usage: safe <command> [flags]
 
     Commands:
       encrypt -i <input file> -o <output file> [-p <password>]

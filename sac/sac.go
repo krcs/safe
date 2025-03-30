@@ -219,7 +219,16 @@ func DecryptFile(password []byte, inputPath, outputPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get input file info: %v", err)
 	}
-	if inFileInfo.Size() > MaxFileSize+int64(HeaderDomainSeparator+HeaderSaltSize+HeaderNonceSize+binary.Size(FileHeader{})+chacha20poly1305.Overhead+HeaderHmacSize+HmacSize) {
+
+	headerSize := int64(
+		HeaderDomainSeparator +
+			HeaderSaltSize + HeaderNonceSize +
+			binary.Size(FileHeader{}) +
+			chacha20poly1305.Overhead +
+			HeaderHmacSize +
+			HmacSize)
+
+	if inFileInfo.Size() > MaxFileSize+headerSize {
 		return fmt.Errorf("encrypted file size %d exceeds maximum allowed size", inFileInfo.Size())
 	}
 
@@ -293,7 +302,9 @@ func DecryptFile(password []byte, inputPath, outputPath string) error {
 	}
 	defer outFile.Close()
 
-	encryptedSize := inFileInfo.Size() - int64(HeaderDomainSeparator+HeaderSaltSize+HeaderNonceSize+len(encryptedHeader)+HeaderHmacSize+HmacSize)
+	headerSize = int64(HeaderDomainSeparator + HeaderSaltSize + HeaderNonceSize + len(encryptedHeader) + HeaderHmacSize + HmacSize)
+
+	encryptedSize := inFileInfo.Size() - headerSize
 	if encryptedSize < 0 {
 		return fmt.Errorf("invalid file size: too small to contain encrypted data")
 	}
