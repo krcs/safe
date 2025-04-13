@@ -37,7 +37,7 @@ func PrintUsage() {
 	fmt.Println("   -vp, --verify    Confirm password if it is entered through the standard input.")
 	fmt.Println("                    Ignored when the -p flag is specified.")
 	fmt.Println()
-	flag.PrintDefaults()
+//	flag.PrintDefaults()
 }
 
 func GetPassword(value string, verify bool) ([]byte, error) {
